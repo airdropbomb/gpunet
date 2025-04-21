@@ -1,6 +1,6 @@
 # GpuNetAutoBot
 
-## Register[https://token.gpu.net?ref=A4G02U]
+## Register [HERE](https://token.gpu.net?ref=A4G02U)
 
 ## Installation
 
