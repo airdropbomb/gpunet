@@ -2,6 +2,7 @@ import axios from 'axios';
 import fs from 'fs/promises';
 import readline from 'readline';
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
 import { ethers } from 'ethers';
 import chalk from 'chalk';
 import cfonts from 'cfonts';
@@ -85,6 +86,17 @@ function getProxyAgent(proxy) {
   }
 }
 
+async function getPublicIP(proxy) {
+    try {
+      const config = proxy ? { httpsAgent: proxy.startsWith('http') ? new HttpsProxyAgent(proxy) : new SocksProxyAgent(proxy) } : {};
+      const response = await axios.get('https://api.ipify.org?format=json', config);
+      return response.data.ip;
+    } catch (error) {
+      return 'Error getting IP';
+    }
+  }
+
+  
 async function getNonce(proxy) {
     const spinner = ora(' Getting Nonce...').start();
     try {
@@ -271,6 +283,8 @@ async function processAccount(privateKey, proxy) {
   
       console.log();
       console.log(chalk.bold.whiteBright(`Wallet: ${shorten(userInfo.id)}`));
+      const ip = await getPublicIP(proxy); 
+      console.log(chalk.bold.whiteBright(`Using IP : ${ip}`));
       console.log(chalk.bold.cyanBright('='.repeat(80)));
       console.log();
   
