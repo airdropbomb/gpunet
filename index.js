@@ -241,7 +241,7 @@ async function dailyCheckIn(cookie, proxy) {
     const isToday = lastVisit.toDateString() === today.toDateString();
 
     if (isToday) {
-      spinner.succeed(chalk.yellowBright(' Already CheckIn Today'));
+      spinner.succeed(chalk.yellowBright(` Already CheckIn Today, Streak: ${streak}`));
     } else {
       spinner.succeed(chalk.greenBright(` Checkin Succesfully, Streak: ${streak}`));
     }
