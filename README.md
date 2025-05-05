@@ -11,12 +11,12 @@ git clone https://github.com/airdropbomb/gpunet.git && cd gpunet
 
 2. Install dependencies:
 ```bash
-npm install
+pip install -r requirements.txt
 ```
 
-3. Fill in the `pk.txt` file with your private key(s):
+3. Fill in the `accounts.txt` file with your private key(s):
 ```bash
-nano pk.txt
+nano accounts.txt
 ```
 
 4. If You Want use Proxy , Enter your proxy on proxy.txt
@@ -26,5 +26,5 @@ nano proxy.txt
 
 5. Run the Script
 ```bash
-npm start
+python3 bot.py
 ```
