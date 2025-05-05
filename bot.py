@@ -9,8 +9,11 @@ from eth_account.messages import encode_defunct
 from eth_utils import to_hex
 from fake_useragent import FakeUserAgent
 from datetime import datetime, timezone
-from colorama import *
+from colorama import Fore, Style, init
 import asyncio, json, re, os, pytz
+
+# Initialize colorama for Windows compatibility
+init()
 
 wib = pytz.timezone('Asia/Jakarta')
 
@@ -27,7 +30,7 @@ class GPU:
             "User-Agent": FakeUserAgent().random
         }
         self.BASE_API = "https://quest-api.gpu.net/api"
-        self.ref_code = "4LGEHS" # U can change it with yours.
+        self.ref_code = "4LGEHS"  # You can change it with yours.
         self.proxies = []
         self.proxy_index = 0
         self.account_proxies = {}
@@ -43,9 +46,10 @@ class GPU:
             flush=True
         )
 
-        def welcome(self):
-        self.clear_terminal()  # Clear terminal before displaying banner
-        print(f"""
+    def welcome(self):
+        try:
+            self.clear_terminal()  # Clear terminal before displaying banner
+            print(f"""
 {Fore.GREEN + Style.BRIGHT}
        █████╗ ██████╗ ██████╗     ███╗   ██╗ ██████╗ ██████╗ ███████╗
       ██╔══██╗██╔══██╗██╔══██╗    ████╗  ██║██╔═══██╗██╔══██╗██╔════╝
@@ -57,6 +61,8 @@ class GPU:
         {Fore.GREEN + Style.BRIGHT}Auto Ping {Fore.BLUE + Style.BRIGHT}Solix - BOT{Style.RESET_ALL}
         {Fore.GREEN + Style.BRIGHT}Rey? {Fore.YELLOW + Style.BRIGHT}<INI WATERMARK>{Style.RESET_ALL}
     """)
+        except (OSError, IOError) as e:
+            self.log(f"{Fore.RED + Style.BRIGHT}Failed to display banner: {e}{Style.RESET_ALL}")
 
     def format_seconds(self, seconds):
         hours, remainder = divmod(seconds, 3600)
@@ -129,7 +135,6 @@ class GPU:
         try:
             account = Account.from_key(private_key)
             address = account.address
-            
             return address
         except Exception as e:
             return None
@@ -143,11 +148,10 @@ class GPU:
             signature = to_hex(signed_message.signature)
 
             data = {
-                "message":message,
-                "signature":signature,
+                "message": message,
+                "signature": signature,
                 "referralCode": self.ref_code
             }
-
             return data
         except Exception as e:
             return None
@@ -403,11 +407,9 @@ class GPU:
             f"{Fore.WHITE + Style.BRIGHT} {exp} GXP {Style.RESET_ALL}"
         )
 
-
         streak = await self.streak_info(token, proxy)
         if streak:
             last_perform = streak.get("lastVisitDate")
-
             now = int(datetime.now(timezone.utc).timestamp())
             next_perform = int(datetime.fromisoformat(last_perform.replace("Z", "+00:00")).timestamp()) + 86400
 
@@ -440,7 +442,7 @@ class GPU:
         for category in ["social", "gpunet", "onchain", "dev"]:
             if category == "social":
                 displayed = "Social"
-            elif category == "Gpunet":
+            elif category == "gpunet":
                 displayed = "Intro GPU.net"
             elif category == "onchain":
                 displayed = "Onchain"
@@ -468,7 +470,7 @@ class GPU:
                             )
                             continue
                         
-                        if category in["social", "onchain", "dev"]:
+                        if category in ["social", "onchain", "dev"]:
                             verify = await self.verify_tasks(token, category, task_id, proxy)
                             if verify and verify.get("message") == "Task verified":
                                 self.log(
@@ -541,14 +543,12 @@ class GPU:
                 accounts = [line.strip() for line in file if line.strip()]
 
             use_proxy_choice = self.print_question()
+            use_proxy = use_proxy_choice in [1, 2]
 
-            use_proxy = False
-            if use_proxy_choice in [1, 2]:
-                use_proxy = True
+            self.clear_terminal()
+            self.welcome()  # Print banner once at the start
 
             while True:
-                self.clear_terminal()
-                self.welcome()
                 self.log(
                     f"{Fore.GREEN + Style.BRIGHT}Account's Total: {Style.RESET_ALL}"
                     f"{Fore.WHITE + Style.BRIGHT}{len(accounts)}{Style.RESET_ALL}"
@@ -599,5 +599,5 @@ if __name__ == "__main__":
         print(
             f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
             f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-            f"{Fore.RED + Style.BRIGHT}[ EXIT ] GPU.net - BOT{Style.RESET_ALL}                                       "                              
+            f"{Fore.RED + Style.BRIGHT}[ EXIT ] GPU.net - BOT{Style.RESET_ALL}"
         )
