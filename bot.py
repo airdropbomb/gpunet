@@ -59,7 +59,7 @@ class GPU:
       ╚═╝  ╚═╝╚═════╝ ╚═════╝     ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝
 {Style.RESET_ALL}
         {Fore.GREEN + Style.BRIGHT}Auto Ping {Fore.BLUE + Style.BRIGHT}Solix - BOT{Style.RESET_ALL}
-        {Fore.GREEN + Style.BRIGHT}Rey? {Fore.YELLOW + Style.BRIGHT}<INI WATERMARK>{Style.RESET_ALL}
+        {Fore.GREEN + Style.BRIGHT}ADB NODE {Fore.YELLOW + Style.BRIGHT}<https://t.me/airdropbombnode>{Style.RESET_ALL}
     """)
         except (OSError, IOError) as e:
             self.log(f"{Fore.RED + Style.BRIGHT}Failed to display banner: {e}{Style.RESET_ALL}")
