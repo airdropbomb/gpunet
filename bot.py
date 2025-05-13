@@ -58,7 +58,7 @@ class GPU:
       ██║  ██║██████╔╝██████╔╝    ██║ ╚████║╚██████╔╝██████╔╝███████╗
       ╚═╝  ╚═╝╚═════╝ ╚═════╝     ╚═╝  ╚═══╝ ╚═════╝ ╚═════╝ ╚══════╝
 {Style.RESET_ALL}
-        {Fore.GREEN + Style.BRIGHT}Auto Ping {Fore.BLUE + Style.BRIGHT}Solix - BOT{Style.RESET_ALL}
+        {Fore.GREEN + Style.BRIGHT}Auto Ping {Fore.BLUE + Style.BRIGHT}GPUNET - BOT{Style.RESET_ALL}
         {Fore.GREEN + Style.BRIGHT}ADB NODE {Fore.YELLOW + Style.BRIGHT}<https://t.me/airdropbombnode>{Style.RESET_ALL}
     """)
         except (OSError, IOError) as e:
