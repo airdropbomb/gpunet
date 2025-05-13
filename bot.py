@@ -135,6 +135,7 @@ class GPU:
         try:
             account = Account.from_key(private_key)
             address = account.address
+            
             return address
         except Exception as e:
             return None
@@ -148,24 +149,33 @@ class GPU:
             signature = to_hex(signed_message.signature)
 
             data = {
-                "message": message,
-                "signature": signature,
+                "message":message,
+                "signature":signature,
                 "referralCode": self.ref_code
             }
+
             return data
         except Exception as e:
             return None
     
-    def get_cookie_data(self, set_cookie: str):
-        cookie = re.search(r'nonce=([^;]+)', set_cookie)
-        if cookie:
-            return f"nonce={cookie.group(1)}"
+    def extract_cookies(self, raw_cookies: list):
+        cookies_dict = {}
+
+        for cookie_str in raw_cookies:
+            cookie_parts = cookie_str.split(';')
+
+            for part in cookie_parts:
+                cookie = part.strip()
+
+                if '=' in cookie:
+                    name, value = cookie.split('=', 1)
+
+                    if name and value and name.lower() not in ['expires', 'path', 'domain', 'samesite', 'secure', 'httponly']:
+                        cookies_dict[name] = value
+
+        cookie_header = "; ".join([f"{key}={value}" for key, value in cookies_dict.items()])
         
-        token = re.search(r'token_cookie_session=([^;]+)', set_cookie)
-        if token:
-            return f"token_cookie_session={token.group(1)}"
-        
-        return None
+        return cookie_header
     
     def mask_account(self, account):
         mask_account = account[:6] + '*' * 6 + account[-6:]
@@ -201,23 +211,25 @@ class GPU:
                     async with session.get(url=url, headers=self.headers) as response:
                         response.raise_for_status()
                         result = await response.text()
-                        set_cookie = response.headers.get('Set-Cookie')
-                        cookie = self.get_cookie_data(set_cookie)
-                        return result, cookie
+
+                        raw_cookies = response.headers.getall('Set-Cookie', [])
+                        cookie_header = self.extract_cookies(raw_cookies)
+
+                        return result, cookie_header
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                return None
+                return None, None
 
-    async def user_verify(self, account: str, address: str, nonce: str, cookie: str, proxy=None, retries=5):
+    async def user_verify(self, account: str, address: str, nonce: str, nonce_cookie: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/auth/eth/verify"
         data = json.dumps(self.generate_payload(account, address, nonce))
         headers = {
             **self.headers,
             "Content-Length": str(len(data)),
             "Content-Type": "application/json",
-            "Cookie": cookie
+            "Cookie": nonce_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -225,20 +237,22 @@ class GPU:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
                     async with session.post(url=url, headers=headers, data=data) as response:
                         response.raise_for_status()
-                        set_cookie = response.headers.get('Set-Cookie')
-                        token_cookie = self.get_cookie_data(set_cookie)
-                        return token_cookie
+
+                        raw_cookies = response.headers.getall('Set-Cookie', [])
+                        cookie_header = self.extract_cookies(raw_cookies)
+
+                        return cookie_header
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
                 return None
             
-    async def user_exp(self, token: str, proxy=None, retries=5):
+    async def user_exp(self, token_cookie: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/exp"
         headers = {
             **self.headers,
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -253,11 +267,11 @@ class GPU:
                     continue
                 return None
             
-    async def streak_info(self, token: str, proxy=None, retries=5):
+    async def streak_info(self, token_cookie: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/streak"
         headers = {
             **self.headers,
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -272,12 +286,12 @@ class GPU:
                     continue
                 return None
             
-    async def perform_streak(self, token: str, proxy=None, retries=5):
+    async def perform_streak(self, token_cookie: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/streak"
         headers = {
             **self.headers,
             "Content-Length": "0",
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -292,11 +306,11 @@ class GPU:
                     continue
                 return None
             
-    async def task_lists(self, token: str, category: str, proxy=None, retries=5):
+    async def task_lists(self, token_cookie: str, category: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/{category}/tasks"
         headers = {
             **self.headers,
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -311,11 +325,11 @@ class GPU:
                     continue
                 return None
             
-    async def verify_tasks(self, token: str, category: str, task_id: int, proxy=None, retries=5):
+    async def verify_tasks(self, token_cookie: str, category: str, task_id: int, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/{category}/tasks/{str(task_id)}/verify"
         headers = {
             **self.headers,
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -330,12 +344,12 @@ class GPU:
                     continue
                 return None
             
-    async def verify_intro_tasks(self, token: str, task_id: int, proxy=None, retries=5):
+    async def verify_intro_tasks(self, token_cookie: str, task_id: int, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/gpunet/tasks/{str(task_id)}/verify"
         headers = {
             **self.headers,
             "Content-Length": "0",
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -350,11 +364,11 @@ class GPU:
                     continue
                 return None
             
-    async def claim_multiplier(self, token: str, category: str, proxy=None, retries=5):
+    async def claim_multiplier(self, token_cookie: str, category: str, proxy=None, retries=5):
         url = f"{self.BASE_API}/users/quests/{category}/multiplexer"
         headers = {
             **self.headers,
-            "Cookie": token
+            "Cookie": token_cookie
         }
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
@@ -379,8 +393,8 @@ class GPU:
             )
             return
         
-        token = await self.user_verify(account, address, nonce, nonce_cookie, proxy)
-        if not token:
+        token_cookie = await self.user_verify(account, address, nonce, nonce_cookie, proxy)
+        if not token_cookie:
             self.log(
                 f"{Fore.CYAN + Style.BRIGHT}Status    :{Style.RESET_ALL}"
                 f"{Fore.RED + Style.BRIGHT} Login Failed {Style.RESET_ALL}"
@@ -397,24 +411,26 @@ class GPU:
         )
 
         balance = "N/A"
-        gxp = await self.user_exp(token, proxy)
-        if gxp:
-            balance = gxp
 
-        exp = balance.strip('"')
+        points = await self.user_exp(token_cookie, proxy)
+        if points:
+            balance = points.strip('"')
+
         self.log(
             f"{Fore.CYAN + Style.BRIGHT}Balance   :{Style.RESET_ALL}"
-            f"{Fore.WHITE + Style.BRIGHT} {exp} GXP {Style.RESET_ALL}"
+            f"{Fore.WHITE + Style.BRIGHT} {balance} GXP {Style.RESET_ALL}"
         )
 
-        streak = await self.streak_info(token, proxy)
+
+        streak = await self.streak_info(token_cookie, proxy)
         if streak:
             last_perform = streak.get("lastVisitDate")
+
             now = int(datetime.now(timezone.utc).timestamp())
             next_perform = int(datetime.fromisoformat(last_perform.replace("Z", "+00:00")).timestamp()) + 86400
 
             if now >= next_perform:
-                perform = await self.perform_streak(token, proxy)
+                perform = await self.perform_streak(token_cookie, proxy)
                 if perform:
                     self.log(
                         f"{Fore.CYAN + Style.BRIGHT}Say GM    :{Style.RESET_ALL}"
@@ -439,17 +455,25 @@ class GPU:
         self.log(f"{Fore.CYAN + Style.BRIGHT}Task Lists:{Style.RESET_ALL}")
         
         displayed = "Unknown"
-        for category in ["social", "gpunet", "onchain", "dev"]:
+        for category in ["social", "gpunet", "onchain", "dev", "partner", "solana", "twitter", "dapp"]:
             if category == "social":
                 displayed = "Social"
-            elif category == "gpunet":
+            elif category == "Gpunet":
                 displayed = "Intro GPU.net"
             elif category == "onchain":
                 displayed = "Onchain"
             elif category == "dev":
                 displayed = "Dev"
+            elif category == "partner":
+                displayed = "Partner"
+            elif category == "solana":
+                displayed = "Solana"
+            elif category == "twitter":
+                displayed = "Twitter"
+            elif category == "dapp":
+                displayed = "Dapp"
 
-            tasks = await self.task_lists(token, category, proxy)
+            tasks = await self.task_lists(token_cookie, category, proxy)
             if tasks:
                 self.log(
                     f"{Fore.MAGENTA + Style.BRIGHT} ● {Style.RESET_ALL}"
@@ -470,8 +494,8 @@ class GPU:
                             )
                             continue
                         
-                        if category in ["social", "onchain", "dev"]:
-                            verify = await self.verify_tasks(token, category, task_id, proxy)
+                        if category in ["social", "onchain", "dev", "partner", "solana", "twitter", "dapp"]:
+                            verify = await self.verify_tasks(token_cookie, category, task_id, proxy)
                             if verify and verify.get("message") == "Task verified":
                                 self.log(
                                     f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
@@ -488,7 +512,7 @@ class GPU:
                                     f"{Fore.RED + Style.BRIGHT}Not Completed{Style.RESET_ALL}"
                                 )
                         elif category == "gpunet":
-                            verify = await self.verify_intro_tasks(token, task_id, proxy)
+                            verify = await self.verify_intro_tasks(token_cookie, task_id, proxy)
                             if verify and verify.get("message") == "Task verified":
                                 self.log(
                                     f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
@@ -505,31 +529,32 @@ class GPU:
                                     f"{Fore.RED + Style.BRIGHT}Not Completed{Style.RESET_ALL}"
                                 )
 
-                claim_multiplier = await self.claim_multiplier(token, category, proxy)
-                if claim_multiplier and claim_multiplier.get("message") == "Multiplexer bonus awarded":
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {category} Multiplier {Style.RESET_ALL}"
-                        f"{Fore.GREEN + Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
-                    )
-                elif claim_multiplier and claim_multiplier.get("message") == "Not all tasks completed":
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {category} Multiplier {Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT}Not Eligible{Style.RESET_ALL}"
-                    )
-                elif claim_multiplier and claim_multiplier.get("message") == "Multiplexer bonus already awarded for this quest type":
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {category} Multiplier {Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT}Already Claimed{Style.RESET_ALL}"
-                    )
-                else:
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {category} Multiplier {Style.RESET_ALL}"
-                        f"{Fore.RED + Style.BRIGHT}Not Claimed{Style.RESET_ALL}"
-                    )
+                if category == "social":
+                    claim_multiplier = await self.claim_multiplier(token_cookie, category, proxy)
+                    if claim_multiplier and claim_multiplier.get("message") == "Multiplexer bonus awarded":
+                        self.log(
+                            f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {displayed} Multiplier {Style.RESET_ALL}"
+                            f"{Fore.GREEN + Style.BRIGHT}Is Claimed{Style.RESET_ALL}"
+                        )
+                    elif claim_multiplier and claim_multiplier.get("message") == "Not all tasks completed":
+                        self.log(
+                            f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {displayed} Multiplier {Style.RESET_ALL}"
+                            f"{Fore.YELLOW + Style.BRIGHT}Not Eligible{Style.RESET_ALL}"
+                        )
+                    elif claim_multiplier and claim_multiplier.get("message") == "Multiplexer bonus already awarded for this quest type":
+                        self.log(
+                            f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {displayed} Multiplier {Style.RESET_ALL}"
+                            f"{Fore.YELLOW + Style.BRIGHT}Already Claimed{Style.RESET_ALL}"
+                        )
+                    else:
+                        self.log(
+                            f"{Fore.CYAN + Style.BRIGHT}    >{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {displayed} Multiplier {Style.RESET_ALL}"
+                            f"{Fore.RED + Style.BRIGHT}Not Claimed{Style.RESET_ALL}"
+                        )
 
             else:
                 self.log(
@@ -543,12 +568,14 @@ class GPU:
                 accounts = [line.strip() for line in file if line.strip()]
 
             use_proxy_choice = self.print_question()
-            use_proxy = use_proxy_choice in [1, 2]
 
-            self.clear_terminal()
-            self.welcome()  # Print banner once at the start
+            use_proxy = False
+            if use_proxy_choice in [1, 2]:
+                use_proxy = True
 
             while True:
+                self.clear_terminal()
+                self.welcome()
                 self.log(
                     f"{Fore.GREEN + Style.BRIGHT}Account's Total: {Style.RESET_ALL}"
                     f"{Fore.WHITE + Style.BRIGHT}{len(accounts)}{Style.RESET_ALL}"
@@ -599,5 +626,5 @@ if __name__ == "__main__":
         print(
             f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
             f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-            f"{Fore.RED + Style.BRIGHT}[ EXIT ] GPU.net - BOT{Style.RESET_ALL}"
+            f"{Fore.RED + Style.BRIGHT}[ EXIT ] GPU.net - BOT{Style.RESET_ALL}                                       "                              
         )
